@@ -1,6 +1,6 @@
 # Changelog
 
-## 2026-05-27
+## v4（修改为端到端预测的监督模仿学习）
 
 ### 监督模仿学习（Imitation Learning）：跳过电价预测，直接输出充放电决策
 
@@ -138,7 +138,7 @@ generate_strategy_from_decisions(power)              # → 直接写入 output.c
 
 ---
 
-## 2026-05-26
+## v3.2（尝试进行一些大改动）
 
 ### 注意力机制实验
 
@@ -208,7 +208,7 @@ generate_strategy_from_decisions(power)              # → 直接写入 output.c
 
 ---
 
-## 2026-05-17
+## v3.1（加入对比学习预训练）
 
 ### I. 移除价格特征
 
@@ -272,7 +272,7 @@ generate_strategy_from_decisions(power)              # → 直接写入 output.c
 - 预训练 Loss 从 2.20→5.53（负样本暴增，任务变难），监控 RMSE **0.749**（新最佳）
 - 文件：`src/models/train.py`（ConvBiLSTM_Contrastive.forward 改为输出 (B,96,D)、timepoint_nt_xent）
 
-## 2026-05-16
+## v2.5（一些新的尝试）
 
 ### 线上反馈：Trend-Aware > Huber
 
@@ -318,7 +318,7 @@ generate_strategy_from_decisions(power)              # → 直接写入 output.c
 
 ### Router 分流模块实验 ⭐
 
-- 按用户要求设计：分箱特征聚类打标 → Router 分类器 → 硬分配到对应头
+- 设计：分箱特征聚类打标 → Router 分类器 → 硬分配到对应头
 - 预训练 Router 准确率仅 49%（regime 特征无法可靠预测分箱聚类标签）
 - 改用 Gumbel-Softmax straight-through 让预测损失回传 → 仍坍缩
 - 回测收益 151k，与 HardRoute 持平，未超过 Soft MoE(157k)
@@ -331,18 +331,18 @@ generate_strategy_from_decisions(power)              # → 直接写入 output.c
 - CE 权重 0.05：RMSE 1.13，但 E1 仍死亡（0.02）
 - **失败根因**：CE 告诉 Gate "这是什么 cluster"，但没说"不同 cluster 应该用不同专家"。KMeans 聚出的 cluster 与最优预测策略之间没有必然联系。
 
-## 2026-05-16
+## v2.4.3（尝试[取消加权，赢者通吃]）
 
 ### MoE-WTA（赢者通吃）实验
 
-- 尝试方案 1（TODO 推荐首选）：每个样本只更新 Gate 选中的专家，其余冻结
+- 尝试：每个样本只更新 Gate 选中的专家，其余冻结
 - 共 4 轮迭代均未能稳定 Gate：
   - v1：基础 WTA (tau=0.5) → E0 死亡，E2 垄断 28/29 天
   - v2：同权初始化 + tau=2.0 → 失去探索，E0 垄断全部 29 天
   - v3：软启动预热 8 轮（软 MoE → WTA）→ Gate 在 E0/E1/E2 间振荡后崩溃
   - v4：epsilon 平滑 (eps=0.1) + tau=1.0 + 负载均衡 0.5 → 同 v3
 - 最佳 epoch：RMSE 1.12（模型最佳），回测收益 139k
-- **失败根因**：鸡生蛋蛋生鸡——专家需要差异化才能让 Gate 学到有意义路由，但差异化需要 Gate 先把不同样本分给不同专家。334 天的数据不足以打破这个循环。每个专家只能从 ~111 天学预测，样本量不足导致专家间方差大、训练不稳定。
+- **失败根因**：专家需要差异化才能让 Gate 学到有意义路由，但差异化需要 Gate 先把不同样本分给不同专家。334 天的数据不足以打破这个循环。每个专家只能从 ~111 天学预测，样本量不足导致专家间方差大、训练不稳定。
 - 新增配置：`WTA_TEMPERATURE`、`WTA_BALANCE_WEIGHT`、`WTA_WARMUP_EPOCHS`、`WTA_EPS`
 - 文件：`src/models/model_moe.py`、`src/models/train.py`、`src/models/predict.py`、`src/config.py`、`main.py`
 
@@ -356,16 +356,7 @@ generate_strategy_from_decisions(power)              # → 直接写入 output.c
 4. **MoE 的 14% 增益**：来自隐式集成（多个头投票降低方差），不是条件路由。
 5. **分箱特征才是真正的杠杆**：新阈值让单头收益从 138k→161k(+17%)，超过了 MoE 的 157k。特征工程的收益比架构复杂度更可靠
 
-## 2026-05-15
-
-### NWP 时区回退测试
-
-- 尝试将 NWP 当作北京时间（去除 period+32 对齐），验证"时区修正是否真的必要"
-- 回测收益骤降至 72k（对齐版本 150k），证实时区修正不可或缺
-- **结论**：恢复 UTC→北京时间对齐，确认 `_merge_nwp()` 中 period+32 修正有效
-- 文件：`src/features/assemble_dataset.py:_merge_nwp()`
-
-## 2026-05-14
+## v2.4.2（尝试熵正则避免退化）
 
 ### HardRoute 全量训练与提交
 
@@ -383,7 +374,7 @@ generate_strategy_from_decisions(power)              # → 直接写入 output.c
 - **线上测试：不如单头**——MoE 隐式集成降低方差的效果仅在训练分布内有效，跨季节泛化反而更差
 - 文件：`src/models/model_moe.py`
 
-## 2026-05-13
+## v2.4.1（尝试对不同类型的天气使用不同的分类模型）
 
 ### HardRoute（规则硬分流）
 
@@ -421,7 +412,7 @@ generate_strategy_from_decisions(power)              # → 直接写入 output.c
 - 移除 optimizer.py 中基于预测价格的"总预期收益"打印
 - 文件：`src/strategy/optimizer.py`
 
-## 2026-05-12
+## v2.3（对数据特征重要性进行分析）
 
 ### SHAP 分箱与 PDP 拐点分析
 
@@ -439,7 +430,7 @@ generate_strategy_from_decisions(power)              # → 直接写入 output.c
 - 保留边界条件关键滚动统计（6 列，排列重要性 Top-30）
 - 文件：`src/features/feature_engineering.py`、`src/features/assemble_dataset.py`
 
-## 2026-05-11
+## v2.2（增大数据的特征维度）
 
 ### 特征扩展
 
@@ -459,13 +450,9 @@ generate_strategy_from_decisions(power)              # → 直接写入 output.c
 - 均恢复为 Huber
 - 文件：`src/models/train.py`、`src/config.py`
 
-## 2026-05-10
+## v2.1（对数据特征进行些许处理）
 
-### v1 基线恢复
-
-- 从 backup/v1 恢复 ConvBiLSTM 架构：Conv1d(64→128→256) + 2×BiLSTM + residual + LayerNorm
-- 824K 参数，Huber Loss
-- 保留两项修复：
+- 进行两项数据特征处理：
   1. NWP 时区修正（UTC→北京时间，period+32）
   2. 验证集时序划分（前 29 天 = 验证集，不可随机打乱）
 - 回测收益：112k，RMSE 1.59
@@ -490,9 +477,9 @@ generate_strategy_from_decisions(power)              # → 直接写入 output.c
 - 逐步降低至 5e-4，配合 CosineAnnealingLR + 早停 patience=20
 - 文件：`src/config.py`、`src/models/train.py`
 
-## v1 
+## v1（尝试使用神经网络）
 
-- 来源：`backup/v1/`，项目最早的完整实现
+- 项目最早的完整实现
 - 模型：ConvBiLSTM（参数量 824K）
   - 输入投影 Linear(85→64) → LayerNorm
   - Conv1d(64→128→256, kernel=5) → 2×BiLSTM(128, bidir=256, 2层)
@@ -515,11 +502,10 @@ generate_strategy_from_decisions(power)              # → 直接写入 output.c
   - 随机验证切分泄漏未来信息
   - 学习率偏高导致最佳 epoch 过早
   - 特征维度较少，缺少天气体感、新能源比率、节假日等关键信息
-- 文件：`backup/v1/` 下所有文件
 
 ---
 
-## v0（2026-05 之前）
+## v0（基于LGB的机器学习方法）
 
 ### 特征工程探索
 
@@ -581,23 +567,6 @@ generate_strategy_from_decisions(power)              # → 直接写入 output.c
 "尤其不建议只使用 MSE"——这正好违背了"RMSE 和收益不相关"的结论。本项目的 Trend-Aware 损失（dir=0.3, win=0.5, huber=0.2）验证了此观点——虽本地 RMSE 略高但泛化更好。
 
 ---
-
-## 当前最佳配置
-
-| 配置项 | 值 |
-|--------|-----|
-| NWP 时区 | UTC → 北京时间（period+32） |
-| 特征维度 | 107（无价格特征，统一训练/测试分布） |
-| 模型 | ConvBiLSTM 单头（826K） + 时间点级对比预训练 + 类型④峰谷样本对 |
-| 注意力模块 | SENet=False, TemporalSelfAttn=False（实验确认无增益） |
-| 损失函数 | Trend-Aware (dir=0.3, win=0.5, huber=0.2) |
-| 学习率 | 5e-4 |
-| 调度器 | CosineAnnealingLR (T_max=100) |
-| 早停 | patience=20 |
-| 全量训练监控RMSE | **0.753**（本次），历史最佳 0.749 |
-| 分箱特征 | is_high_pressure(>2.05)、is_extreme_pressure、is_low_pressure(<-5.81)、is_high_solar(>3.05)、is_high_hdd(>25.80)、is_high_net_load(>median) |
-| 用法 | `python main.py --mode final --model bilstm --contrastive` |
-| 对比预训练 | 类型①②③ + 类型④（峰谷价格正样本对，配置开关 `CONTRASTIVE_USE_TYPE4`） |
 
 ## 关键经验
 
