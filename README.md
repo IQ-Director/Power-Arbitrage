@@ -1,3 +1,5 @@
+# Power-Arbitrage
+第四届世界科学智能大赛电力市场交易赛道：储能电站收益优化的解决方案
 > **赛事链接**：[第四届世界科学智能大赛：电力市场交易赛道：储能电站收益优化](https://competition.ai4s.com.cn/p/9?channelCode=dw)
 
 # v4 — 监督模仿学习（Imitation Learning）
@@ -97,3 +99,34 @@ ConvBiLSTM 单头（~823K）+ 可选 FeatureAttention/TemporalAttention + 对比
 │       └── optimizer.py ★      # + generate_strategy_from_decisions
 └── CHANGELOG.md ★              # 2026-05-27 完整实验记录
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
